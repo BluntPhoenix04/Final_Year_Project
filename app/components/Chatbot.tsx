@@ -12,7 +12,7 @@ interface Message {
 
 const predefinedResponses: Record<string, string> = {
   'how do i find a room':
-    'To find a room, use the Live Navigation feature on your dashboard. Select the room from the map, and we'll show you step-by-step directions!',
+    'To find a room, use the Live Navigation feature on your dashboard. Select the room from the map, and we\'ll show you step-by-step directions!',
   'how do i book a classroom':
     'As a teacher, you can book classrooms from your dashboard. Click the "Book Empty Classroom" button, select a room, date, and time slot, then confirm your booking!',
   'where is block a':
