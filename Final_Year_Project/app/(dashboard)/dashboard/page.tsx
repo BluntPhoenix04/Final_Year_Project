@@ -179,7 +179,7 @@ export default function DashboardPage() {
                   <div className="text-center py-8">
                     <Calendar className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
                     <p className="text-muted-foreground">No bookings yet. Book a room to get started!</p>
-                    <Button className="mt-4" onClick={() => document.querySelector('[value="explore"]')?.click?.()}>
+                    <Button className="mt-4" onClick={() => (document.querySelector('[value="explore"]') as HTMLElement)?.click()}>
                       Explore Rooms
                     </Button>
                   </div>
