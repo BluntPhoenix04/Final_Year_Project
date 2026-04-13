@@ -106,7 +106,7 @@ export function RoomCard({
         )}
 
         {/* Actions */}
-        <div className="grid grid-cols-2 gap-2">
+        <div className={`grid gap-2 ${onBook ? 'grid-cols-2' : 'grid-cols-1'}`}>
           <Button
             size="sm"
             variant="outline"
@@ -114,14 +114,16 @@ export function RoomCard({
           >
             Navigate
           </Button>
-          <Button
-            size="sm"
-            variant={availability === 'available' ? 'default' : 'ghost'}
-            onClick={() => onBook?.(id)}
-            disabled={availability !== 'available'}
-          >
-            Book
-          </Button>
+          {onBook && (
+            <Button
+              size="sm"
+              variant={availability === 'available' ? 'default' : 'ghost'}
+              onClick={() => onBook(id)}
+              disabled={availability !== 'available'}
+            >
+              Book
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

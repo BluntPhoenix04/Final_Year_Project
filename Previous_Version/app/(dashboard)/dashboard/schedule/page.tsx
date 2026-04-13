@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
@@ -7,12 +8,58 @@ import { Button } from '@/components/ui/button'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { timetable } from '@/lib/mock-data'
 import { Calendar, Clock, MapPin, User, ArrowRight } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
 
 export default function SchedulePage() {
+  const router = useRouter()
+  const [bookings, setBookings] = useState<any[]>([])
+
+  useEffect(() => {
+    const saved = localStorage.getItem('campnav_bookings')
+    if (saved) {
+      try {
+        setBookings(JSON.parse(saved))
+      } catch(e) {}
+    }
+  }, [])
+
+  // Convert bookings into timetable-like format
+  const mappedBookings = bookings.map(b => {
+    // Parse the date to get the weekday (e.g., 'Monday')
+    let dayName = 'Monday'
+    if (b.date) {
+      const d = new Date(b.date)
+      dayName = d.toLocaleDateString('en-US', { weekday: 'long' })
+    }
+
+    return {
+      id: b.id,
+      name: b.purpose,
+      code: 'Booking',
+      instructor: `${b.attendees} Attendee(s)`,
+      day: dayName,
+      startTime: b.startTime,
+      endTime: b.endTime,
+      room: b.roomId,
+      roomName: b.roomName,
+      building: b.building,
+      floor: b.floor,
+      isBooking: true,
+      date: b.date,
+    }
+  })
+
+  // Merge timetable and mapped bookings
+  const combinedSchedule = [...timetable, ...mappedBookings]
+
   const getClassesByDay = (day: string) => {
-    return timetable.filter(c => c.day === day)
+    return combinedSchedule.filter(c => c.day === day).sort((a, b) => a.startTime.localeCompare(b.startTime))
+  }
+
+  const handleNavigate = (roomId: string) => {
+    router.push(`/dashboard/navigate?roomId=${roomId}`)
   }
 
   return (
@@ -73,7 +120,7 @@ export default function SchedulePage() {
                             </div>
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <MapPin className="w-4 h-4" />
-                              <span>{classItem.room}</span>
+                              <span>{classItem.isBooking ? classItem.roomName : `Room ${classItem.room}`}</span>
                             </div>
                             <div className="flex items-center gap-2 text-muted-foreground">
                               <User className="w-4 h-4" />
@@ -84,11 +131,16 @@ export default function SchedulePage() {
                           {/* Location Details */}
                           <div className="text-xs text-muted-foreground bg-secondary/30 rounded p-2">
                             {classItem.building}, Floor {classItem.floor}
+                            {classItem.isBooking && classItem.date && ` · ${classItem.date}`}
                           </div>
 
                           {/* Action */}
-                          <Button size="sm" className="w-full">
-                            Navigate to Class
+                          <Button 
+                            size="sm" 
+                            className="w-full"
+                            onClick={() => handleNavigate(classItem.room)}
+                          >
+                            Navigate to {classItem.isBooking ? classItem.roomName : `Room ${classItem.room}`}
                             <ArrowRight className="w-4 h-4 ml-2" />
                           </Button>
                         </div>
@@ -105,21 +157,36 @@ export default function SchedulePage() {
         <Card>
           <CardHeader>
             <CardTitle>Upcoming Events</CardTitle>
-            <CardDescription>Your next 5 classes</CardDescription>
+            <CardDescription>Your next 5 classes and bookings</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {timetable.slice(0, 5).map(classItem => (
+            {combinedSchedule.slice(0, 5).map(classItem => (
               <div
                 key={classItem.id}
-                className="flex items-center justify-between p-3 border border-border rounded-lg"
+                className={`flex items-center justify-between p-3 border rounded-lg ${
+                  classItem.isBooking ? 'border-primary/50 bg-primary/5' : 'border-border'
+                }`}
               >
                 <div className="space-y-1 flex-1">
-                  <p className="font-medium text-foreground">{classItem.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-foreground">{classItem.name}</p>
+                    {classItem.isBooking && (
+                      <Badge variant="secondary" className="text-[10px] uppercase tracking-wider py-0 px-1.5 h-4 bg-primary text-primary-foreground">
+                        Booked
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground">
-                    {classItem.day} at {classItem.startTime} · {classItem.room}
+                    {classItem.isBooking ? classItem.date : classItem.day} at {classItem.startTime} · Room {classItem.room || (classItem as any).roomName}
                   </p>
                 </div>
-                <Button size="sm" variant="outline">Navigate</Button>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => handleNavigate(classItem.room)}
+                >
+                  Navigate
+                </Button>
               </div>
             ))}
           </CardContent>

@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MapPin, Clock, Users } from 'lucide-react'
+import { rooms } from '@/lib/mock-data'
 
 interface BookingModalProps {
   open: boolean
@@ -27,12 +28,23 @@ export function BookingModal({
   room,
   onConfirm,
 }: BookingModalProps) {
+  const [selectedRoomId, setSelectedRoomId] = useState(room?.id || '')
+  
+  useEffect(() => {
+    if (open && room) {
+      setSelectedRoomId(room.id)
+    }
+  }, [open, room])
+
+  const availableRooms = rooms.filter(r => r.availability === 'available')
+  const currentRoom = availableRooms.find(r => r.id === selectedRoomId) || room
+
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     startTime: '09:00',
     endTime: '10:00',
     attendees: '5',
-    purpose: 'Study Session',
+    purpose: 'Lecture',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -42,7 +54,10 @@ export function BookingModal({
 
     setTimeout(() => {
       onConfirm?.({
-        roomId: room?.id,
+        roomId: currentRoom?.id,
+        roomName: currentRoom?.name,
+        building: currentRoom?.building,
+        floor: currentRoom?.floor,
         ...formData,
         attendees: parseInt(formData.attendees),
       })
@@ -51,28 +66,34 @@ export function BookingModal({
     }, 600)
   }
 
-  if (!room) return null
+  if (!currentRoom) return null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Book Study Space</DialogTitle>
+          <DialogTitle>Book Classroom / Space</DialogTitle>
           <DialogDescription>
-            Reserve {room.name} for your study session
+            Reserve {currentRoom.name} for your lecture, session, or meeting
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Room Info */}
-          <div className="bg-secondary/50 rounded-lg p-4 space-y-2">
-            <div className="flex items-center gap-2 text-foreground font-medium">
-              <MapPin className="w-4 h-4 text-primary" />
-              {room.name}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {room.building}, Floor {room.floor} · Capacity: {room.capacity}
-            </p>
+          {/* Room Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="room">Select Room</Label>
+            <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a room" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableRooms.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.name} ({r.building}, Floor {r.floor} · Cap: {r.capacity})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Form */}
@@ -119,7 +140,7 @@ export function BookingModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Array.from({ length: room.capacity }, (_, i) => (i + 1).toString()).map((num) => (
+                  {Array.from({ length: currentRoom.capacity }, (_, i) => (i + 1).toString()).map((num) => (
                     <SelectItem key={num} value={num}>
                       {num} person{num !== '1' ? 's' : ''}
                     </SelectItem>
@@ -136,10 +157,12 @@ export function BookingModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Study Session">Study Session</SelectItem>
-                  <SelectItem value="Group Project">Group Project</SelectItem>
-                  <SelectItem value="Club Meeting">Club Meeting</SelectItem>
-                  <SelectItem value="Research">Research</SelectItem>
+                  <SelectItem value="Lecture">Lecture</SelectItem>
+                  <SelectItem value="Lab Session">Lab Session</SelectItem>
+                  <SelectItem value="Office Hours">Office Hours</SelectItem>
+                  <SelectItem value="Faculty Meeting">Faculty Meeting</SelectItem>
+                  <SelectItem value="Seminar">Seminar</SelectItem>
+                  <SelectItem value="Exam / Test">Exam / Test</SelectItem>
                   <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
