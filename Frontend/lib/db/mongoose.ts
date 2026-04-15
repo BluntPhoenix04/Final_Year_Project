@@ -1,11 +1,5 @@
 import mongoose from 'mongoose'
 
-const MONGODB_URI = process.env.MONGODB_URI!
-
-if (!MONGODB_URI) {
-  throw new Error('Please define MONGODB_URI in .env.local')
-}
-
 // Extend global to cache the mongoose connection across hot reloads in dev
 declare global {
   // eslint-disable-next-line no-var
@@ -19,6 +13,11 @@ if (!cached) {
 }
 
 export async function connectDB() {
+  const MONGODB_URI = process.env.MONGODB_URI!
+
+  if (!MONGODB_URI) {
+    throw new Error('Please define MONGODB_URI in .env.local or your deployment environment variables')
+  }
   if (cached.conn) return cached.conn
 
   if (!cached.promise) {
