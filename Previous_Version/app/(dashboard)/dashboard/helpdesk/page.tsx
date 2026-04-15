@@ -189,8 +189,8 @@ export default function HelpdeskPage() {
                     <p className="text-sm text-muted-foreground">No tickets yet</p>
                   </div>
                 ) : (
-                  tickets.map(ticket => (
-                    <div key={ticket.id} className="p-3 border border-border rounded-lg space-y-2">
+                  tickets.map((ticket, idx) => (
+                    <div key={(ticket as any)._id || ticket.id || idx} className="p-3 border border-border rounded-lg space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="space-y-1 flex-1">
                           <p className="text-sm font-medium text-foreground line-clamp-2">

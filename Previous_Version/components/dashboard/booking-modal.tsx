@@ -30,14 +30,19 @@ export function BookingModal({
 }: BookingModalProps) {
   const [selectedRoomId, setSelectedRoomId] = useState(room?.id || '')
   
+  const availableRooms = rooms.filter(r => r.availability === 'available')
+
   useEffect(() => {
-    if (open && room) {
-      setSelectedRoomId(room.id)
+    if (open) {
+      if (room) {
+        setSelectedRoomId(room.id)
+      } else if (!selectedRoomId && availableRooms.length > 0) {
+        setSelectedRoomId(availableRooms[0].id)
+      }
     }
   }, [open, room])
 
-  const availableRooms = rooms.filter(r => r.availability === 'available')
-  const currentRoom = availableRooms.find(r => r.id === selectedRoomId) || room
+  const currentRoom = availableRooms.find(r => r.id === selectedRoomId) || room || availableRooms[0]
 
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -47,23 +52,62 @@ export function BookingModal({
     purpose: 'Lecture',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
+    if (!formData.date || !formData.startTime || !formData.endTime || !formData.purpose || !formData.attendees) {
+      setError('Please fill in all details')
+      return
+    }
 
-    setTimeout(() => {
-      onConfirm?.({
-        roomId: currentRoom?.id,
-        roomName: currentRoom?.name,
-        building: currentRoom?.building,
-        floor: currentRoom?.floor,
-        ...formData,
-        attendees: parseInt(formData.attendees),
+    if (formData.startTime >= formData.endTime) {
+      setError('End time must be after start time')
+      return
+    }
+
+    setIsSubmitting(true)
+    setError('')
+
+    try {
+      const token = localStorage.getItem('auth_token')
+      const res = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          roomId: currentRoom?.id,
+          roomName: currentRoom?.name,
+          building: currentRoom?.building,
+          floor: currentRoom?.floor,
+          date: formData.date,
+          startTime: formData.startTime,
+          endTime: formData.endTime,
+          purpose: formData.purpose,
+          attendees: parseInt(formData.attendees)
+        })
       })
-      setIsSubmitting(false)
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        if (data.conflict) {
+          setError(data.error)
+        } else {
+          setError(data.error || 'Failed to create booking')
+        }
+        setIsSubmitting(false)
+        return
+      }
+
+      onConfirm?.(data)
       onOpenChange(false)
-    }, 600)
+    } catch (e) {
+      setError('Network error. Please try again.')
+      setIsSubmitting(false)
+    }
   }
 
   if (!currentRoom) return null
@@ -86,18 +130,34 @@ export function BookingModal({
               <SelectTrigger>
                 <SelectValue placeholder="Choose a room" />
               </SelectTrigger>
-              <SelectContent>
-                {availableRooms.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.name} ({r.building}, Floor {r.floor} · Cap: {r.capacity})
-                  </SelectItem>
-                ))}
+              <SelectContent className="max-h-60">
+                {[1, 2, 3, 4].map(floor => {
+                  const floorRooms = availableRooms.filter(r => r.floor === floor)
+                  if (floorRooms.length === 0) return null
+                  return (
+                    <div key={floor}>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">
+                        Floor {floor}
+                      </div>
+                      {floorRooms.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>
+                          {r.name} (Cap: {r.capacity})
+                        </SelectItem>
+                      ))}
+                    </div>
+                  )
+                })}
               </SelectContent>
             </Select>
           </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-lg border border-destructive/20">
+                {error}
+              </div>
+            )}
             {/* Date */}
             <div className="space-y-2">
               <Label htmlFor="date">Date</Label>

@@ -19,6 +19,7 @@ interface NavbarProps {
 export function Navbar({ onMenuClick, sidebarOpen }: NavbarProps) {
   const [userEmail, setUserEmail] = useState('')
   const [userRole, setUserRole] = useState('')
+  const [hasUnread, setHasUnread] = useState(true)
 
   useEffect(() => {
     setUserEmail(localStorage.getItem('user_email') || '')
@@ -34,7 +35,9 @@ export function Navbar({ onMenuClick, sidebarOpen }: NavbarProps) {
   }
 
   const getRoleBadgeColor = (role: string) => {
-    return role === 'faculty' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+    if (role === 'admin') return 'bg-red-100 text-red-700'
+    if (role === 'faculty') return 'bg-blue-100 text-blue-700'
+    return 'bg-green-100 text-green-700'
   }
 
   return (
@@ -54,17 +57,73 @@ export function Navbar({ onMenuClick, sidebarOpen }: NavbarProps) {
           <div className="hidden sm:flex items-center gap-2">
             <h1 className="text-lg font-semibold text-foreground">Dashboard</h1>
             <span className={cn('px-2.5 py-0.5 rounded-full text-xs font-medium', getRoleBadgeColor(userRole))}>
-              {userRole === 'faculty' ? 'Faculty' : 'Student'}
+              {userRole === 'admin' ? '⚙ Admin' : userRole === 'faculty' ? 'Faculty' : 'Student'}
             </span>
           </div>
         </div>
 
         {/* Right: Notifications & Profile */}
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full"></span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="relative">
+                <Bell className="w-5 h-5" />
+                {hasUnread && <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full"></span>}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              <div className="px-4 py-2 border-b border-border flex items-center justify-between">
+                <h3 className="font-semibold text-sm">Notifications</h3>
+                {hasUnread && (
+                    <button 
+                      onClick={() => setHasUnread(false)}
+                      className="text-xs text-primary hover:underline font-medium"
+                    >
+                      Mark all as read
+                    </button>
+                )}
+              </div>
+              <div className="flex flex-col max-h-[300px] overflow-auto">
+                {!hasUnread ? (
+                  <div className="px-4 py-8 text-center text-muted-foreground">
+                    <Bell className="w-8 h-8 opacity-20 mx-auto mb-2" />
+                    <p className="text-sm">No new notifications</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="px-4 py-3 hover:bg-secondary/50 cursor-pointer border-b border-border/50 transition-colors">
+                      <p className="text-sm font-medium text-foreground">Class starting soon</p>
+                      <p className="text-xs text-muted-foreground mt-1">CS101 starts in 15 minutes at Room 101.</p>
+                    </div>
+                    {userRole === 'admin' && (
+                      <div className="px-4 py-3 hover:bg-secondary/50 cursor-pointer border-b border-border/50 transition-colors">
+                        <p className="text-sm font-medium text-foreground">New Support Ticket</p>
+                        <p className="text-xs text-muted-foreground mt-1">A student reported a projector issue in Room 301.</p>
+                      </div>
+                    )}
+                    {userRole === 'faculty' && (
+                      <div className="px-4 py-3 hover:bg-secondary/50 cursor-pointer border-b border-border/50 transition-colors">
+                        <p className="text-sm font-medium text-foreground">Booking Confirmed</p>
+                        <p className="text-xs text-muted-foreground mt-1">Your reservation for the Library has been confirmed.</p>
+                      </div>
+                    )}
+                    <div className="px-4 py-3 hover:bg-secondary/50 cursor-pointer transition-colors">
+                      <p className="text-sm font-medium text-foreground">System Update</p>
+                      <p className="text-xs text-muted-foreground mt-1">CampNav route algorithms have been updated.</p>
+                    </div>
+                  </>
+                )}
+              </div>
+              {hasUnread && (
+                <div 
+                  className="p-2 text-center border-t border-border bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors"
+                  onClick={() => setHasUnread(false)}
+                >
+                  <span className="text-xs text-primary font-medium">Clear Notifications</span>
+                </div>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

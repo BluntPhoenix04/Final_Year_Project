@@ -6,23 +6,45 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
-import { timetable } from '@/lib/mock-data'
 import { Calendar, Clock, MapPin, User, ArrowRight } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { timetable as fallbackTimetable } from '@/lib/mock-data'
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
 
 export default function SchedulePage() {
   const router = useRouter()
   const [bookings, setBookings] = useState<any[]>([])
+  const [myTimetable, setMyTimetable] = useState<any[]>([])
 
   useEffect(() => {
-    const saved = localStorage.getItem('campnav_bookings')
-    if (saved) {
+    // Load student's own timetable from auth payload, fallback to mock
+    const savedTT = localStorage.getItem('user_timetable')
+    if (savedTT) {
       try {
-        setBookings(JSON.parse(saved))
-      } catch(e) {}
+        const parsed = JSON.parse(savedTT)
+        setMyTimetable(parsed.length > 0 ? parsed : fallbackTimetable)
+      } catch {
+        setMyTimetable(fallbackTimetable)
+      }
+    } else {
+      setMyTimetable(fallbackTimetable)
     }
+
+    // Fetch live system bookings
+    const fetchBookings = async () => {
+      try {
+        const token = localStorage.getItem('auth_token')
+        const res = await fetch('/api/bookings', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setBookings(data.bookings)
+        }
+      } catch (e) {}
+    }
+    fetchBookings()
   }, [])
 
   // Convert bookings into timetable-like format
@@ -35,7 +57,7 @@ export default function SchedulePage() {
     }
 
     return {
-      id: b.id,
+      id: b._id || b.id,
       name: b.purpose,
       code: 'Booking',
       instructor: `${b.attendees} Attendee(s)`,
@@ -52,7 +74,7 @@ export default function SchedulePage() {
   })
 
   // Merge timetable and mapped bookings
-  const combinedSchedule = [...timetable, ...mappedBookings]
+  const combinedSchedule = [...myTimetable, ...mappedBookings]
 
   const getClassesByDay = (day: string) => {
     return combinedSchedule.filter(c => c.day === day).sort((a, b) => a.startTime.localeCompare(b.startTime))
@@ -97,7 +119,7 @@ export default function SchedulePage() {
                   ) : (
                     getClassesByDay(day).map(classItem => (
                       <div
-                        key={classItem.id}
+                        key={classItem._id || classItem.id || Math.random().toString()}
                         className="p-4 border border-border rounded-lg hover:border-primary/50 hover:bg-secondary/30 transition-all"
                       >
                         <div className="space-y-3">
@@ -160,9 +182,9 @@ export default function SchedulePage() {
             <CardDescription>Your next 5 classes and bookings</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {combinedSchedule.slice(0, 5).map(classItem => (
+            {combinedSchedule.slice(0, 5).map((classItem, idx) => (
               <div
-                key={classItem.id}
+                key={classItem._id || classItem.id || idx}
                 className={`flex items-center justify-between p-3 border rounded-lg ${
                   classItem.isBooking ? 'border-primary/50 bg-primary/5' : 'border-border'
                 }`}

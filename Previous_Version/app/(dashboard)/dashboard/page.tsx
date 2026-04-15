@@ -16,29 +16,62 @@ export default function DashboardPage() {
   const [selectedRoom, setSelectedRoom] = useState<any>(null)
   const [bookingOpen, setBookingOpen] = useState(false)
   const [bookings, setBookings] = useState<any[]>([])
+  const [myClasses, setMyClasses] = useState<any[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
-    const role = localStorage.getItem('user_role') || 'student'
-    setUserRole(role)
-    
-    // Load bookings from localStorage
-    const savedBookings = localStorage.getItem('campnav_bookings')
-    if (savedBookings) {
+    setUserRole(localStorage.getItem('user_role') || '')
+
+    // Load user's personal timetable (set during login), fallback to mock
+    const savedTT = localStorage.getItem('user_timetable')
+    if (savedTT) {
       try {
-        setBookings(JSON.parse(savedBookings))
-      } catch(e) {}
+        const parsed = JSON.parse(savedTT)
+        setMyClasses(parsed.length > 0 ? parsed : timetable)
+      } catch {
+        setMyClasses(timetable)
+      }
+    } else {
+      setMyClasses(timetable)
     }
+
+    fetchBookings()
     setIsLoaded(true)
   }, [])
 
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('campnav_bookings', JSON.stringify(bookings))
-    }
-  }, [bookings, isLoaded])
 
-  const isFaculty = userRole === 'faculty'
+  const fetchBookings = async () => {
+    try {
+      const token = localStorage.getItem('auth_token')
+      const res = await fetch('/api/bookings', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setBookings(data.bookings)
+      }
+    } catch (e) {
+      console.error('Failed to fetch bookings', e)
+    }
+  }
+
+  const cancelBooking = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      const token = localStorage.getItem('auth_token')
+      const res = await fetch(`/api/bookings?id=${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.ok) {
+        setBookings(prev => prev.filter(b => b._id !== id))
+      }
+    } catch (err) {
+      console.error('Failed to cancel', err)
+    }
+  }
+
+  const canBook = userRole === 'faculty' || userRole === 'admin'
 
   const handleNavigate = (roomId: string) => {
     window.location.href = `/dashboard/navigate?roomId=${roomId}`
@@ -53,27 +86,16 @@ export default function DashboardPage() {
   }
 
   const handleConfirmBooking = (booking: any) => {
-    setBookings(prev => [
-      {
-        ...booking,
-        id: `booking-${Date.now()}`,
-        createdAt: new Date(),
-      },
-      ...prev,
-    ])
+    fetchBookings() // re-fetch from server to get MongoDB _id
     setSelectedRoom(null)
   }
 
-  const handleCancelBooking = (bookingId: string) => {
-    setBookings(prev => prev.filter(b => b.id !== bookingId))
-  }
-
   const availableRooms = rooms.filter(r => r.availability === 'available').slice(0, 4)
-  const upcomingClasses = timetable.slice(0, 3)
+  const upcomingClasses = myClasses.slice(0, 3)
 
-  // Tab count: faculty gets 3 tabs (Explore, Classes, Bookings), student gets 2
-  const tabGridCols = isFaculty ? 'grid-cols-3' : 'grid-cols-2'
-  const maxTabsWidth = isFaculty ? 'max-w-sm' : 'max-w-xs'
+  // Tab count: faculty/admin gets 3 tabs (Explore, Classes, Bookings), student gets 2
+  const tabGridCols = canBook ? 'grid-cols-3' : 'grid-cols-2'
+  const maxTabsWidth = canBook ? 'max-w-sm' : 'max-w-xs'
 
   return (
     <DashboardLayout>
@@ -84,15 +106,15 @@ export default function DashboardPage() {
             <h1 className="text-3xl font-bold text-foreground">Welcome to CampNav</h1>
             <p className="text-muted-foreground">Navigate your campus smarter with AI-powered guidance</p>
           </div>
-          {isFaculty && (
+          {canBook && (
             <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-sm px-3 py-1">
-              🎓 Faculty Access
+              {userRole === 'admin' ? '⚙ Admin Access' : '🎓 Faculty Access'}
             </Badge>
           )}
         </div>
 
         {/* Quick Stats */}
-        <div className={`grid grid-cols-1 gap-4 ${isFaculty ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
+        <div className={`grid grid-cols-1 gap-4 ${canBook ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
           <Card>
             <CardContent className="pt-6">
               <div className="space-y-2">
@@ -118,7 +140,7 @@ export default function DashboardPage() {
           </Card>
 
           {/* Faculty-only: Bookings stat */}
-          {isFaculty && (
+          {canBook && (
             <Card className="border-blue-200 bg-blue-50/30">
               <CardContent className="pt-6">
                 <div className="space-y-2">
@@ -150,7 +172,7 @@ export default function DashboardPage() {
           <TabsList className={`grid w-full ${maxTabsWidth} ${tabGridCols}`}>
             <TabsTrigger value="explore">Explore Rooms</TabsTrigger>
             <TabsTrigger value="classes">My Classes</TabsTrigger>
-            {isFaculty && <TabsTrigger value="bookings">My Bookings</TabsTrigger>}
+            {canBook && <TabsTrigger value="bookings">My Bookings</TabsTrigger>}
           </TabsList>
 
           {/* ── Explore Rooms ── */}
@@ -161,7 +183,7 @@ export default function DashboardPage() {
                   <div>
                     <CardTitle>Available Rooms</CardTitle>
                     <CardDescription>
-                      {isFaculty
+                      {canBook
                         ? 'Navigate to or book available classrooms and spaces'
                         : 'Navigate to available rooms on campus'}
                     </CardDescription>
@@ -179,7 +201,7 @@ export default function DashboardPage() {
                       key={room.id}
                       {...room}
                       onNavigate={handleNavigate}
-                      onBook={isFaculty ? handleBook : undefined}
+                      onBook={canBook ? handleBook : undefined}
                     />
                   ))}
                 </div>
@@ -215,7 +237,7 @@ export default function DashboardPage() {
           </TabsContent>
 
           {/* ── My Bookings (Faculty only) ── */}
-          {isFaculty && (
+          {canBook && (
             <TabsContent value="bookings" className="space-y-4">
               <Card>
                 <CardHeader>
@@ -243,8 +265,8 @@ export default function DashboardPage() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {bookings.map(booking => (
-                        <div key={booking.id} className="flex items-start justify-between p-4 border border-border rounded-lg hover:bg-secondary/20 transition-colors">
+                      {bookings.map((booking, idx) => (
+                        <div key={booking._id || booking.id || idx} className="flex items-start justify-between p-4 border border-border rounded-lg hover:bg-secondary/20 transition-colors">
                           <div className="space-y-1.5">
                             <div className="flex items-center gap-2">
                               <MapPin className="w-4 h-4 text-primary" />
@@ -262,13 +284,9 @@ export default function DashboardPage() {
                             </div>
                             <p className="text-xs text-muted-foreground">{booking.purpose} · {booking.attendees} attendee{booking.attendees !== 1 ? 's' : ''}</p>
                           </div>
-                          <button
-                            onClick={() => handleCancelBooking(booking.id)}
-                            className="p-1.5 rounded hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors"
-                            title="Cancel booking"
-                          >
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={(e) => cancelBooking((booking as any)._id, e)}>
                             <Trash2 className="w-4 h-4" />
-                          </button>
+                          </Button>
                         </div>
                       ))}
                     </div>
@@ -281,7 +299,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Booking Modal — faculty only */}
-      {isFaculty && (
+      {canBook && (
         <BookingModal
           open={bookingOpen}
           onOpenChange={setBookingOpen}

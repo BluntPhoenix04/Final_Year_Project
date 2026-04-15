@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { MapPin, Home, Map, MessageSquare, Clock, LogOut, Settings } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { MapPin, Home, Map, MessageSquare, Clock, LogOut, Settings, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -13,14 +14,25 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname()
+  const [userRole, setUserRole] = useState('')
 
-  const navItems = [
+  useEffect(() => {
+    setUserRole(localStorage.getItem('user_role') || '')
+  }, [])
+
+  const baseNavItems = [
     { icon: Home, label: 'Dashboard', href: '/dashboard', id: 'dashboard' },
     { icon: Map, label: 'Navigate', href: '/dashboard/navigate', id: 'navigate' },
     { icon: Clock, label: 'Schedule', href: '/dashboard/schedule', id: 'schedule' },
     { icon: MessageSquare, label: 'Help Desk', href: '/dashboard/helpdesk', id: 'helpdesk' },
     { icon: Settings, label: 'Settings', href: '/dashboard/settings', id: 'settings' },
   ]
+
+  const adminNavItems = [
+    { icon: ShieldCheck, label: 'Admin Panel', href: '/dashboard/admin', id: 'admin' },
+  ]
+
+  const navItems = userRole === 'admin' ? [...baseNavItems, ...adminNavItems] : baseNavItems
 
   const handleLogout = () => {
     localStorage.removeItem('auth_token')
@@ -51,15 +63,20 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
             </div>
             <div>
               <h2 className="font-bold text-lg text-foreground">CampNav</h2>
-              <p className="text-xs text-muted-foreground">Navigate Smart</p>
+              <p className="text-xs text-muted-foreground">
+                {userRole === 'admin' ? 'Admin Console' : 'Navigate Smart'}
+              </p>
             </div>
           </Link>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-2">
+          <nav className="flex-1 space-y-1">
             {navItems.map(item => {
               const Icon = item.icon
-              const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+              const isActive = item.href === '/dashboard' 
+                ? pathname === '/dashboard' 
+                : pathname === item.href || pathname.startsWith(item.href + '/')
+              const isAdminItem = item.id === 'admin'
               
               return (
                 <Link
@@ -69,8 +86,10 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                   className={cn(
                     'flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors group',
                     isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-foreground hover:bg-secondary'
+                      ? isAdminItem ? 'bg-red-600 text-white' : 'bg-primary text-primary-foreground'
+                      : isAdminItem
+                        ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 font-semibold border border-red-200 dark:border-red-900/50'
+                        : 'text-foreground hover:bg-secondary'
                   )}
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
