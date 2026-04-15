@@ -136,8 +136,3 @@ npx ts-node scripts/seed.ts
 | Student | student@univ.edu.in | student123 |
 
 ---
-
-## 👨‍💻 Author
-
-**Siddhant K. Singh**
-Final Year Project — B.Tech Computer Science
