@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+
+export const dynamic = 'force-dynamic'
+
 import { connectDB } from '@/lib/db/mongoose'
 import { Booking } from '@/lib/db/models/Booking'
 import { getUserFromHeader } from '@/lib/auth'
